@@ -3,10 +3,10 @@ name: Build
 on:
   push:
     paths:
-      - 'README.md'
-      - '.github/workflows/*.yml'
       - '7.4/**'
 #      - '8.0/**'
+      - 'README.md'
+      - '.github/workflows/*.yml'
 
 jobs:
   build:
