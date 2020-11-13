@@ -1,0 +1,61 @@
+name: Build
+
+on:
+  push:
+    paths:
+      - 'README.md'
+      - '.github/workflows/*.yml'
+      - '7.4/**'
+#      - '8.0/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        php: [7.4] #8.0.0RC2
+        tag: [fpm, cli-xdebug]
+
+    name: Build PHP ${{ matrix.php }}-${{ matrix.tag }} Alpine
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-buildx-
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and Push
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          context: ./${{ matrix.php }}/${{ matrix.tag }}
+          file: ./${{ matrix.php }}/${{ matrix.tag }}/Dockerfile
+          builder: ${{ steps.buildx.outputs.name }}
+          push: true
+          build-args: |
+            PHP_VERSION=${{ matrix.php }}
+            COMPOSER_VERSION=2.0
+            XDEBUG_VERSION=3.0.0beta1
+            REDIS_VERSION=5.3.1
+          tags: |
+            ghcr.io/${{ github.actor }}/php:${{ matrix.php }}-${{ matrix.tag }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+
+      - name: Image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}
