@@ -50,7 +50,7 @@ jobs:
           build-args: |
             PHP_VERSION=${{ matrix.php }}
             COMPOSER_VERSION=2.0
-            XDEBUG_VERSION=3.0.0beta1
+            XDEBUG_VERSION=2.9.8
             REDIS_VERSION=5.3.1
           tags: |
             ghcr.io/${{ github.actor }}/php:${{ matrix.php }}-${{ matrix.tag }}
