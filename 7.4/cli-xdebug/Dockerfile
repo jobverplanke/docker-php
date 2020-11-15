@@ -4,7 +4,7 @@ ARG PHP_VERSION
 FROM composer:${COMPOSER_VERSION} as composer
 FROM php:${PHP_VERSION}-cli-alpine3.12
 
-LABEL maintainer="job.verplanke@gmail.com"
+LABEL maintainer="Job Verplanke <job.verplanke@gmail.com>"
 LABEL org.opencontainers.image.source="https://github.com/jobverplanke/docker-php"
 
 ARG XDEBUG_VERSION
