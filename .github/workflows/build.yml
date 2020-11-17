@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - '7.4/**'
-#      - '8.0/**'
+      # - '8.0/**'
       - 'README.md'
       - '.github/workflows/*.yml'
 
@@ -13,10 +13,11 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        php: [7.4] #8.0.0RC2
-        tag: [fpm, cli-xdebug]
+        php: [7.4] # 8.0.0RC2
+        xdebug: [2.9.8] # 3.0.0RC1
+        env: [dev] # prod
 
-    name: Build PHP ${{ matrix.php }}-${{ matrix.tag }} Alpine
+    name: Build PHP ${{ matrix.php }}-fpm-${{ matrix.env }} Alpine
 
     steps:
       - uses: actions/checkout@v2
@@ -43,17 +44,17 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v2
         with:
-          context: ./${{ matrix.php }}/${{ matrix.tag }}
-          file: ./${{ matrix.php }}/${{ matrix.tag }}/Dockerfile
+          context: ./${{ matrix.php }}/fpm-${{ matrix.env }}
+          file: ./${{ matrix.php }}/fpm-${{ matrix.env }}/Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           push: true
           build-args: |
             PHP_VERSION=${{ matrix.php }}
             COMPOSER_VERSION=2.0
-            XDEBUG_VERSION=2.9.8
+            XDEBUG_VERSION=${{ matrix.xdebug }}
             REDIS_VERSION=5.3.1
           tags: |
-            ghcr.io/${{ github.actor }}/php:${{ matrix.php }}-${{ matrix.tag }}
+            ghcr.io/${{ github.actor }}/php:${{ matrix.php }}-fpm-${{ matrix.env }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
 

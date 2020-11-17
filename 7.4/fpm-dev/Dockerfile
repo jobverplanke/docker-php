@@ -2,12 +2,13 @@ ARG COMPOSER_VERSION
 ARG PHP_VERSION
 
 FROM composer:${COMPOSER_VERSION} as composer
-FROM php:${PHP_VERSION}-cli-alpine3.12
+FROM php:${PHP_VERSION}-fpm-alpine3.12
 
 LABEL maintainer="Job Verplanke <job.verplanke@gmail.com>"
 LABEL org.opencontainers.image.source="https://github.com/jobverplanke/docker-php"
 
 ARG XDEBUG_VERSION
+ARG REDIS_VERSION
 
 ENV COMPOSER_ALLOW_SUPERUSER=1 \
     PATH="${PATH}:/root/.composer/vendor/bin" \
@@ -32,6 +33,8 @@ RUN set -eux \
         zlib-dev \
     && docker-php-source extract \
     && pecl install xdebug-${XDEBUG_VERSION} \
+    && pecl install redis-${REDIS_VERSION} \
+    && docker-php-ext-enable redis \
     && docker-php-source delete \
     && docker-php-ext-install \
         bcmath \
@@ -46,7 +49,9 @@ RUN set -eux \
     && rm -rf /tmp/* \
     && rm -rf ~/.pearrc go-pear.phar
 
-COPY ./php.ini /usr/local/etc/php/php.ini
-COPY ./xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
+COPY ./config/www.conf /usr/local/etc/php-fpm.d/www.conf
+COPY ./config/php.ini /usr/local/etc/php/php.ini
+COPY ./config/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+COPY ./config/xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
 
 WORKDIR /var/www/html/
