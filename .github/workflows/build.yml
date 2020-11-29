@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - '7.4/**'
-      # - '8.0/**'
+      - '8.0/**'
       - 'README.md'
       - '.github/workflows/*.yml'
 
@@ -13,8 +13,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        php: [7.4] # 8.0.0RC2
-        xdebug: [2.9.8] # 3.0.0RC1
+        php: [7.4, 8.0]
         env: [dev] # prod
 
     name: Build PHP ${{ matrix.php }}-fpm-${{ matrix.env }} Alpine
@@ -51,8 +50,8 @@ jobs:
           build-args: |
             PHP_VERSION=${{ matrix.php }}
             COMPOSER_VERSION=2.0
-            XDEBUG_VERSION=${{ matrix.xdebug }}
-            REDIS_VERSION=5.3.1
+            XDEBUG_VERSION=3.0.0
+            REDIS_VERSION=5.3.2
           tags: |
             ghcr.io/${{ github.actor }}/php:${{ matrix.php }}-fpm-${{ matrix.env }}
           cache-from: type=local,src=/tmp/.buildx-cache

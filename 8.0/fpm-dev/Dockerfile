@@ -18,8 +18,8 @@ COPY --from=composer /usr/bin/composer /usr/bin/composer
 
 RUN set -eux \
     && apk add --no-cache tzdata \
+    && ln -s /usr/share/zoneinfo/${TZ} \
     && apk add --no-cache --virtual .phpize-deps wget $PHPIZE_DEPS \
-    && ln -s /usr/share/zoneinfo/${TZ} /etc/localtime \
     && wget http://pear.php.net/go-pear.phar \
     && php go-pear.phar \
     && pecl update-channels \
@@ -42,6 +42,7 @@ RUN set -eux \
         intl \
         opcache \
         pcntl \
+        pdo \
         pdo_mysql \
         zip \
     && apk del .phpize-deps \
