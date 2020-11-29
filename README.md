@@ -1,10 +1,6 @@
-# PHP Docker Images for Development
+# PHP Docker Images
 
-### Base Image
----
+**For development purpose only, use in production at own risk!**
 
-Base Image containers
-- Composer 2.0
-- Xdebug 2.9.8
-- Redis 5.3.1
-- Opcache
+
+

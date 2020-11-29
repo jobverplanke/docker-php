@@ -7,19 +7,19 @@ FROM php:${PHP_VERSION}-fpm-alpine3.12
 LABEL maintainer="Job Verplanke <job.verplanke@gmail.com>"
 LABEL org.opencontainers.image.source="https://github.com/jobverplanke/docker-php"
 
-ARG XDEBUG_VERSION
-ARG REDIS_VERSION
-
-ENV COMPOSER_ALLOW_SUPERUSER=1 \
-    PATH="${PATH}:/root/.composer/vendor/bin" \
-    TZ='Europa/Amsterdam'
+ENV PATH="${PATH}:/root/.composer/vendor/bin"\
+    COMPOSER_ALLOW_SUPERUSER=1 \
+    XDEBUG_VERSION=3.0.0 \
+    REDIS_VERSION=5.3.2
 
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 
+ARG TZ
+
 RUN set -eux \
     && apk add --no-cache tzdata \
-    && apk add --no-cache --virtual .phpize-deps wget $PHPIZE_DEPS \
     && ln -s /usr/share/zoneinfo/${TZ} /etc/localtime \
+    && apk add --no-cache --virtual .phpize-deps wget $PHPIZE_DEPS \
     && wget http://pear.php.net/go-pear.phar \
     && php go-pear.phar \
     && pecl update-channels \
