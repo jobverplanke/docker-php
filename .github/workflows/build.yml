@@ -48,8 +48,6 @@ jobs:
           push: true
           build-args: |
             PHP_VERSION=${{ matrix.php }}
-            COMPOSER_VERSION=2.0
-            TZ=Europa/Amsterdam
           tags: |
             ghcr.io/${{ github.actor }}/php:${{ matrix.php }}-fpm
           cache-from: type=local,src=/tmp/.buildx-cache

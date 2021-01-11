@@ -1,4 +1,4 @@
-ARG COMPOSER_VERSION
+ARG COMPOSER_VERSION=2.0
 ARG PHP_VERSION
 
 FROM composer:${COMPOSER_VERSION} as composer
@@ -8,13 +8,13 @@ LABEL maintainer="Job Verplanke <job.verplanke@gmail.com>"
 LABEL org.opencontainers.image.source="https://github.com/jobverplanke/docker-php"
 
 ENV PATH="${PATH}:/root/.composer/vendor/bin" \
-    COMPOSER_ALLOW_SUPERUSER=1 \
-    XDEBUG_VERSION=3.0.0 \
-    REDIS_VERSION=5.3.2
+    COMPOSER_ALLOW_SUPERUSER=1
 
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 
-ARG TZ
+ARG TZ=Europa/Amsterdam
+ARG XDEBUG_VERSION=3.0.0
+ARG REDIS_VERSION=5.3.2
 
 RUN set -eux \
     && apk add --no-cache tzdata \
