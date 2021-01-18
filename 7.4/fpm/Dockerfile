@@ -13,9 +13,8 @@ ENV PATH="${PATH}:/root/.composer/vendor/bin" \
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 
 ARG TZ=Europa/Amsterdam
-ARG XDEBUG_VERSION=3.0.0
+ARG XDEBUG_VERSION=3.0.2
 ARG REDIS_VERSION=5.3.2
-
 
 RUN set -eux \
     && apk add --no-cache tzdata \
