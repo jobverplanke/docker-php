@@ -1,8 +1,8 @@
 ARG COMPOSER_VERSION=2.0
-ARG PHP_VERSION
+ARG PHP_VERSION=7.4
 
 FROM composer:${COMPOSER_VERSION} as composer
-FROM php:${PHP_VERSION}-fpm-alpine3.12
+FROM php:${PHP_VERSION}-fpm-alpine3.13
 
 LABEL maintainer="Job Verplanke <job.verplanke@gmail.com>"
 LABEL org.opencontainers.image.source="https://github.com/jobverplanke/docker-php"

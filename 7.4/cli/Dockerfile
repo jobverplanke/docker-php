@@ -1,8 +1,8 @@
 ARG COMPOSER_VERSION=2.0
-ARG PHP_VERSION=8.0
+ARG PHP_VERSION=7.4
 
 FROM composer:${COMPOSER_VERSION} as composer
-FROM php:${PHP_VERSION}-fpm-alpine3.13
+FROM php:${PHP_VERSION}-cli-alpine3.13
 
 LABEL maintainer="Job Verplanke <job.verplanke@gmail.com>"
 LABEL org.opencontainers.image.source="https://github.com/jobverplanke/docker-php"
@@ -13,7 +13,7 @@ ENV PATH="${PATH}:/root/.composer/vendor/bin" \
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 
 ARG TZ=Europa/Amsterdam
-ARG XDEBUG_VERSION=3.0.3
+ARG XDEBUG_VERSION=3.0.2
 ARG REDIS_VERSION=5.3.2
 
 RUN set -eux \
@@ -48,7 +48,6 @@ RUN set -eux \
     && rm -rf /tmp/* \
     && rm -rf ~/.pearrc go-pear.phar
 
-COPY ./config/www.conf /usr/local/etc/php-fpm.d/www.conf
 COPY ./config/php.ini /usr/local/etc/php/php.ini
 COPY ./config/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 COPY ./config/xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini

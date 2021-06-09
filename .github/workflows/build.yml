@@ -14,8 +14,10 @@ jobs:
     strategy:
       matrix:
         php: ['7.4', '8.0']
+        type: ['fpm', 'cli']
 
-    name: Build PHP ${{ matrix.php }}-fpm Alpine
+
+    name: Build PHP ${{ matrix.php }}-${{ matrix.type }} Alpine
 
     steps:
       - uses: actions/checkout@v2
@@ -42,14 +44,14 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v2
         with:
-          context: ./${{ matrix.php }}/fpm
-          file: ./${{ matrix.php }}/fpm/Dockerfile
+          context: ./${{ matrix.php }}/${{ matrix.type }}
+          file: ./${{ matrix.php }}/${{ matrix.type }}/Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           push: true
           build-args: |
             PHP_VERSION=${{ matrix.php }}
           tags: |
-            ghcr.io/${{ github.actor }}/php:${{ matrix.php }}-fpm
+            ghcr.io/${{ github.actor }}/php:${{ matrix.php }}-${{ matrix.type }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
 
