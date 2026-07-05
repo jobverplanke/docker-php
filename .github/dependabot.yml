@@ -1,0 +1,34 @@
+version: 2
+updates:
+  # Keeps the SHA-pinned actions in the workflows current (bumps the pin
+  # and the version comment together).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Europe/Amsterdam
+
+  # Keeps the digest-pinned base images in the Dockerfiles current.
+  # php stays within its version directory: major/minor tag bumps
+  # (8.5 -> 8.6/9.0) are ignored - a new PHP version gets its own
+  # directory. Digest refreshes and composer updates come through.
+  - package-ecosystem: docker
+    directories:
+      - /8.5/fpm
+      - /8.5/cli
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Europe/Amsterdam
+    ignore:
+      - dependency-name: php
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+    groups:
+      base-images:
+        patterns:
+          - "*"

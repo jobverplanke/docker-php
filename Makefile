@@ -1,53 +1,28 @@
 SHELL := /bin/bash
+IMAGE := jobverplanke/php
 
-build-80-cli:
-	@docker build \
-		--no-cache \
-		--build-arg PHP_VERSION=8.0 \
-		-t jobverplanke/php:8.0-cli \
-		./8.0/cli
+# Multi-stage images with a dev and production target.
+# Build context is the version directory so Dockerfiles can COPY from config/.
+# $(1) = version dir, $(2) = variant, $(3) = target suffix (e.g. 85-fpm)
+define IMAGE_RULES
+build-$(3):
+	@docker build --target production -f $(1)/$(2)/Dockerfile -t $(IMAGE):$(1)-$(2) $(1)
 
-build-80-fpm:
-	@docker build \
-		--no-cache \
-		--build-arg PHP_VERSION=8.0 \
-		-t jobverplanke/php:8.0-fpm \
-		./8.0/fpm
+build-$(3)-dev:
+	@docker build --target dev -f $(1)/$(2)/Dockerfile -t $(IMAGE):$(1)-$(2)-dev $(1)
 
-build-74-cli:
-	@docker build \
-		--no-cache \
-		--build-arg PHP_VERSION=7.4 \
-		-t jobverplanke/php:7.4-cli \
-		./7.4/cli
+run-$(3):
+	@docker run --rm -it $(IMAGE):$(1)-$(2) sh
 
-build-74-fpm:
-	@docker build \
-		--no-cache \
-		--build-arg PHP_VERSION=7.4 \
-		-t jobverplanke/php:7.4-fpm \
-		./7.4/fpm
+run-$(3)-dev:
+	@docker run --rm -it $(IMAGE):$(1)-$(2)-dev sh
 
-run-80-cli:
-	@docker run --rm -it jobverplanke/php:8.0-cli sh
+mods-$(3):
+	@docker run --rm $(IMAGE):$(1)-$(2) php -m
 
-run-80-fpm:
-	@docker run --rm -it jobverplanke/php:8.0-fpm sh
+mods-$(3)-dev:
+	@docker run --rm $(IMAGE):$(1)-$(2)-dev php -m
+endef
 
-mods-80-cli:
-	@docker run --rm jobverplanke/php:8.0-cli php -m
-
-mods-80-fpm:
-	@docker run --rm jobverplanke/php:8.0-fpm php -m
-
-run-74-cli:
-	@docker run --rm -it jobverplanke/php:7.4-cli sh
-
-run-74-fpm:
-	@docker run --rm -it jobverplanke/php:7.4-fpm sh
-
-mods-74-cli:
-	@docker run --rm jobverplanke/php:7.4-cli php -m
-
-mods-74-fpm:
-	@docker run --rm jobverplanke/php:7.4-fpm php -m
+$(eval $(call IMAGE_RULES,8.5,fpm,85-fpm))
+$(eval $(call IMAGE_RULES,8.5,cli,85-cli))

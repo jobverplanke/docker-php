@@ -1,0 +1,16 @@
+#!/bin/sh
+# Checks php-fpm's ping endpoint on the status listener via FastCGI.
+# Exit 0 when fpm answers with pong, non-zero otherwise.
+#
+# Kubernetes:            livenessProbe/readinessProbe -> exec: [php-fpm-healthcheck]
+# Docker/compose:        used by the image HEALTHCHECK instruction
+# Defaults match config/fpm/www.conf; override via env when needed.
+set -eu
+
+FCGI_CONNECT="${FCGI_CONNECT:-127.0.0.1:9001}"
+FCGI_PING_PATH="${FCGI_PING_PATH:-/ping}"
+
+SCRIPT_NAME="$FCGI_PING_PATH" \
+SCRIPT_FILENAME="$FCGI_PING_PATH" \
+REQUEST_METHOD=GET \
+cgi-fcgi -bind -connect "$FCGI_CONNECT" 2>/dev/null | grep -q "pong"

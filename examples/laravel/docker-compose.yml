@@ -1,0 +1,126 @@
+# Example docker-compose.yml for a Laravel app using the jobverplanke/php images.
+#
+# Copy this file to the root of your Laravel project and docker/nginx.conf
+# alongside it. This setup uses the -dev images (xdebug enabled); swap the
+# image tags for 8.5-fpm / 8.5-cli in production.
+#
+# Expected values in your Laravel .env:
+#   DB_HOST=mysql  DB_DATABASE=laravel  DB_USERNAME=laravel  DB_PASSWORD=secret
+#   REDIS_HOST=redis  QUEUE_CONNECTION=redis  CACHE_STORE=redis
+
+services:
+  nginx:
+    image: nginx:1.29-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  # Web requests (php-fpm, port 9000 internally)
+  app:
+    image: jobverplanke/php:8.5-fpm-dev
+    volumes:
+      - ./:/var/www/html
+    environment:
+      # For PhpStorm path mappings when debugging with xdebug
+      PHP_IDE_CONFIG: serverName=laravel
+    extra_hosts:
+      # Makes xdebug's host.docker.internal work on Linux too
+      - host.docker.internal:host-gateway
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Queue workers via Laravel Horizon (requires pcntl + posix, both present
+  # in the cli image): one master process that spawns and supervises the
+  # actual worker processes. Scale by raising maxProcesses in
+  # config/horizon.php, NOT by adding container replicas. The dashboard is
+  # served by the app service at /horizon.
+  horizon:
+    image: jobverplanke/php:8.5-cli-dev
+    command: php artisan horizon
+    restart: unless-stopped
+    # Horizon traps SIGTERM and lets running jobs finish before exiting;
+    # keep this at or above your longest job timeout.
+    stop_grace_period: 60s
+    volumes:
+      - ./:/var/www/html
+    environment:
+      # Avoid xdebug connection noise on every job; set to "debug" when
+      # you actually want to step-debug a queue job.
+      XDEBUG_MODE: "off"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Scheduler - MUST run as exactly one replica (use ->onOneServer() if you
+  # ever need HA). schedule:work ticks schedule:run every minute in the
+  # foreground, so no crond is needed in the image.
+  scheduler:
+    image: jobverplanke/php:8.5-cli-dev
+    command: php artisan schedule:work
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www/html
+    environment:
+      XDEBUG_MODE: "off"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # One-off artisan commands, not started by default (profile "tools"):
+  #   docker compose run --rm artisan migrate
+  #   docker compose run --rm artisan tinker
+  artisan:
+    image: jobverplanke/php:8.5-cli-dev
+    entrypoint: ["php", "artisan"]
+    profiles:
+      - tools
+    volumes:
+      - ./:/var/www/html
+    environment:
+      XDEBUG_MODE: "off"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      # Optional: expose for a local GUI client
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-psecret"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mysql-data:
+  redis-data:
