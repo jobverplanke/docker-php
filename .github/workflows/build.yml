@@ -9,25 +9,48 @@ on:
       - '.github/workflows/build.yml'
   workflow_dispatch:
 
-# Least privilege: the default token can only read the repo; the build job
-# additionally gets packages:write below. No PAT needed.
+# Least privilege: the default token can only read the repo; the jobs that
+# publish additionally get packages:write below. No PAT needed.
 permissions:
   contents: read
 
+env:
+  REGISTRY_IMAGE: ghcr.io/${{ github.repository_owner }}/php
+
 jobs:
+  # One job per variant *and* per architecture. Each job builds a single
+  # platform and pushes it untagged (by digest); the merge job below joins the
+  # per-variant digests into one multi-arch tag.
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
     strategy:
       fail-fast: false
       matrix:
+        # 2 types x 2 envs x 2 platforms = 8 jobs. The platform dimension is
+        # kept separate (rather than one job building both) because arm64 must
+        # not be emulated: this build compiles redis, imagick and xdebug from
+        # source with pecl, which takes roughly half an hour per combination
+        # under QEMU. Native arm64 runners are free for public repositories,
+        # so each platform builds on its own hardware at amd64-like speed.
         php: ['8.5']
         type: ['fpm', 'cli']
         env: ['production', 'dev']
+        platform: ['linux/amd64', 'linux/arm64']
+        # Maps each platform onto its native runner and a filename-safe
+        # short name. Expressed as include rows so the runner mapping lives in
+        # one place instead of being repeated across 8 hand-written entries.
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
 
-    name: Build PHP ${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }} Alpine
+    name: Build PHP ${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }} Alpine (${{ matrix.arch }})
 
     # All actions are pinned to commit SHAs (supply-chain hardening); the
     # trailing comment documents the human-readable version.
@@ -44,39 +67,121 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Single-platform build loaded into the runner's docker daemon so Trivy
+      # can scan a real image. A multi-platform build cannot be loaded, which
+      # is exactly why the platform is a matrix dimension: this job runs on a
+      # runner native to matrix.platform, so the arm64 job loads and scans an
+      # actual arm64 image. The gate therefore covers both architectures.
+      #
+      # The cache scope is per variant *and* per architecture; sharing one
+      # scope would make the two architectures evict each other's layers.
       - name: Build for scanning (not pushed)
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: ./${{ matrix.php }}
           file: ./${{ matrix.php }}/${{ matrix.type }}/Dockerfile
           target: ${{ matrix.env }}
+          platforms: ${{ matrix.platform }}
           load: true
-          tags: scan-target:${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: scan-target:${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
 
       - name: Scan for vulnerabilities (gate - fails on HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: scan-target:${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}
+          image-ref: scan-target:${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
           scanners: vuln
           severity: HIGH,CRITICAL
           exit-code: '1'
           ignore-unfixed: true
 
-      - name: Push with provenance and SBOM
-        id: docker_build
+      # Pushed without a tag: the tag is applied once, in the merge job, after
+      # every platform of this variant has passed the gate. Re-running the
+      # build here is a cache hit on the step above.
+      #
+      # provenance/sbom make each push an index (image manifest + attestation
+      # manifests) rather than a bare manifest; imagetools create in the merge
+      # job flattens those indexes into one and carries the attestations over,
+      # so the published tag keeps mode=max provenance and an SBOM per arch.
+      - name: Push by digest with provenance and SBOM
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: ./${{ matrix.php }}
           file: ./${{ matrix.php }}/${{ matrix.type }}/Dockerfile
           target: ${{ matrix.env }}
-          push: true
+          platforms: ${{ matrix.platform }}
           provenance: mode=max
           sbom: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/php:${{ matrix.php }}-${{ matrix.type }}${{ matrix.env == 'dev' && '-dev' || '' }}
-          cache-from: type=gha
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
 
-      - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
+      # Hand the digest to the merge job as an empty file named after it.
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "${RUNNER_TEMP}/digests"
+          touch "${RUNNER_TEMP}/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digest-${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # One job per variant (not per architecture): collects that variant's
+  # per-platform digests and publishes them under a single tag.
+  merge:
+    needs: [build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.5']
+        type: ['fpm', 'cli']
+        env: ['production', 'dev']
+
+    env:
+      TAG: ${{ matrix.php }}-${{ matrix.type }}${{ matrix.env == 'dev' && '-dev' || '' }}
+
+    name: Publish PHP ${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }} Alpine (multi-arch)
+
+    steps:
+      # Only this variant's digests; the pattern excludes the other variants.
+      - name: Download digests
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digest-${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch manifest index and push tag
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          # Each downloaded file is named after one platform's digest. The
+          # word splitting on the printf is deliberate: every digest has to
+          # reach imagetools as its own argument.
+          # shellcheck disable=SC2046
+          docker buildx imagetools create \
+            --tag "${REGISTRY_IMAGE}:${TAG}" \
+            $(printf "${REGISTRY_IMAGE}@sha256:%s " *)
+
+      - name: Inspect published image
+        run: docker buildx imagetools inspect "${REGISTRY_IMAGE}:${TAG}"
