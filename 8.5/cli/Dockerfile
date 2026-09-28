@@ -7,7 +7,7 @@
 # -----------------------------------------------------------------
 # Stage 1: composer - Composer binary only
 # -----------------------------------------------------------------
-FROM composer:2.10@sha256:d8f6343d3fae98107426bc49163ccad46ef85aabd4a27d80a74401fab4aba332 AS composer
+FROM composer:2.10@sha256:9715c7f69044da2a212a5fbde29ee7da24e364d426560ae6367b060236f847d7 AS composer
 
 # -----------------------------------------------------------------
 # Stage 2: build - compile the production extension set (no xdebug)
