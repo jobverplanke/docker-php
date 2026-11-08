@@ -10,7 +10,7 @@
 FROM composer:2.10@sha256:2cf275428757e5435a667bfc0d038b14520ca02be2b1b70d44a05c8c19e2de48 AS composer
 
 # -----------------------------------------------------------------
-# Stage 2: build - compile the production extension set (no xdebug)
+# Stage 2: build - compile the extension set
 # Note: opcache is statically compiled into PHP >= 8.5 and is not
 # installable as a shared extension
 # -----------------------------------------------------------------
@@ -48,19 +48,7 @@ RUN set -eux \
         zip
 
 # -----------------------------------------------------------------
-# Stage 3: build-dev - inherits the production set, adds xdebug.
-# Activation happens via config/dev/xdebug.ini in the dev
-# stage, so conf.d stays identical to the build stage.
-# -----------------------------------------------------------------
-FROM build AS build-dev
-
-ARG XDEBUG_VERSION=3.5.3
-
-RUN set -eux \
-    && pecl install xdebug-${XDEBUG_VERSION}
-
-# -----------------------------------------------------------------
-# Stage 4: runtime-base - shared foundation for dev and production
+# Stage 3: runtime-base - runtime packages, config and user
 # -----------------------------------------------------------------
 FROM php:8.5-fpm-alpine3.24@sha256:4c2818074ec49f6abe46620f3965e0cb75bc3a5f2b417edd1aacaba6f091c40e AS runtime-base
 
@@ -114,19 +102,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
     CMD ["php-fpm-healthcheck"]
 
 # -----------------------------------------------------------------
-# Stage 5: dev - extensions incl. xdebug, plus dev overlays
-# -----------------------------------------------------------------
-FROM runtime-base AS dev
-
-COPY --from=build-dev /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
-COPY --from=build-dev /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
-
-COPY config/dev/php.ini /usr/local/etc/php/conf.d/zz-90-php.ini
-COPY config/dev/opcache.ini /usr/local/etc/php/conf.d/zz-91-opcache.ini
-COPY config/dev/xdebug.ini /usr/local/etc/php/conf.d/zz-92-xdebug.ini
-
-# -----------------------------------------------------------------
-# Stage 6: production - default target (no xdebug, JIT active)
+# Stage 4: production - final image with the compiled extensions
 # -----------------------------------------------------------------
 FROM runtime-base AS production
 

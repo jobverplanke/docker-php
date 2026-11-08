@@ -32,7 +32,6 @@ jobs:
       matrix:
         php: ['8.5']
         type: ['fpm', 'cli']
-        env: ['production', 'dev']
         platform: ['linux/amd64', 'linux/arm64']
         include:
           - platform: linux/amd64
@@ -42,7 +41,7 @@ jobs:
             runner: ubuntu-24.04-arm
             arch: arm64
 
-    name: Build PHP ${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }} Alpine (${{ matrix.arch }})
+    name: Build PHP ${{ matrix.php }}-${{ matrix.type }} Alpine (${{ matrix.arch }})
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -62,17 +61,17 @@ jobs:
         with:
           context: ./${{ matrix.php }}
           file: ./${{ matrix.php }}/${{ matrix.type }}/Dockerfile
-          target: ${{ matrix.env }}
+          target: production
           platforms: ${{ matrix.platform }}
           load: true
-          tags: scan-target:${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
-          cache-from: type=gha,scope=${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
+          tags: scan-target:${{ matrix.php }}-${{ matrix.type }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.type }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.type }}-${{ matrix.arch }}
 
       - name: Scan for vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: scan-target:${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
+          image-ref: scan-target:${{ matrix.php }}-${{ matrix.type }}-${{ matrix.arch }}
           scanners: vuln
           severity: HIGH,CRITICAL
           exit-code: '1'
@@ -84,12 +83,12 @@ jobs:
         with:
           context: ./${{ matrix.php }}
           file: ./${{ matrix.php }}/${{ matrix.type }}/Dockerfile
-          target: ${{ matrix.env }}
+          target: production
           platforms: ${{ matrix.platform }}
           provenance: mode=max
           sbom: true
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.type }}-${{ matrix.arch }}
 
       # Hand the digest to the merge job as an empty file named after it.
       - name: Export digest
@@ -102,7 +101,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: digest-${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
+          name: digest-${{ matrix.php }}-${{ matrix.type }}-${{ matrix.arch }}
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -120,12 +119,11 @@ jobs:
       matrix:
         php: ['8.5']
         type: ['fpm', 'cli']
-        env: ['production', 'dev']
 
     env:
-      TAG: ${{ matrix.php }}-${{ matrix.type }}${{ matrix.env == 'dev' && '-dev' || '' }}
+      TAG: ${{ matrix.php }}-${{ matrix.type }}
 
-    name: Publish PHP ${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }} Alpine (multi-arch)
+    name: Publish PHP ${{ matrix.php }}-${{ matrix.type }} Alpine (multi-arch)
 
     steps:
       # Only this variant's digests; the pattern excludes the other variants.
@@ -133,7 +131,7 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: ${{ runner.temp }}/digests
-          pattern: digest-${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}-*
+          pattern: digest-${{ matrix.php }}-${{ matrix.type }}-*
           merge-multiple: true
 
       - name: Set up Docker Buildx

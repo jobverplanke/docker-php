@@ -1,8 +1,8 @@
 # Example docker-compose.yml for a Laravel app using the jobverplanke/php images.
 #
 # Copy this file to the root of your Laravel project and docker/nginx.conf
-# alongside it. This setup uses the -dev images (xdebug enabled); swap the
-# image tags for 8.5-fpm / 8.5-cli in production.
+# alongside it. The images are production builds (no xdebug); the app
+# service turns opcache file checks back on for the bind-mounted code.
 #
 # Expected values in your Laravel .env:
 #   DB_HOST=mysql  DB_DATABASE=laravel  DB_USERNAME=laravel  DB_PASSWORD=secret
@@ -21,15 +21,12 @@ services:
 
   # Web requests (php-fpm, port 9000 internally)
   app:
-    image: jobverplanke/php:8.5-fpm-dev
+    image: jobverplanke/php:8.5-fpm
+    # The image never checks files for changes (validate_timestamps=0), so
+    # edits to the bind-mounted code would not show up without a restart.
+    command: ["php-fpm", "-d", "opcache.validate_timestamps=1", "-d", "opcache.revalidate_freq=0"]
     volumes:
       - ./:/var/www/html
-    environment:
-      # For PhpStorm path mappings when debugging with xdebug
-      PHP_IDE_CONFIG: serverName=laravel
-    extra_hosts:
-      # Makes xdebug's host.docker.internal work on Linux too
-      - host.docker.internal:host-gateway
     depends_on:
       mysql:
         condition: service_healthy
@@ -42,7 +39,7 @@ services:
   # config/horizon.php, NOT by adding container replicas. The dashboard is
   # served by the app service at /horizon.
   horizon:
-    image: jobverplanke/php:8.5-cli-dev
+    image: jobverplanke/php:8.5-cli
     command: php artisan horizon
     restart: unless-stopped
     # Horizon traps SIGTERM and lets running jobs finish before exiting;
@@ -50,10 +47,6 @@ services:
     stop_grace_period: 60s
     volumes:
       - ./:/var/www/html
-    environment:
-      # Avoid xdebug connection noise on every job; set to "debug" when
-      # you actually want to step-debug a queue job.
-      XDEBUG_MODE: "off"
     depends_on:
       mysql:
         condition: service_healthy
@@ -64,13 +57,11 @@ services:
   # ever need HA). schedule:work ticks schedule:run every minute in the
   # foreground, so no crond is needed in the image.
   scheduler:
-    image: jobverplanke/php:8.5-cli-dev
+    image: jobverplanke/php:8.5-cli
     command: php artisan schedule:work
     restart: unless-stopped
     volumes:
       - ./:/var/www/html
-    environment:
-      XDEBUG_MODE: "off"
     depends_on:
       mysql:
         condition: service_healthy
@@ -81,14 +72,12 @@ services:
   #   docker compose run --rm artisan migrate
   #   docker compose run --rm artisan tinker
   artisan:
-    image: jobverplanke/php:8.5-cli-dev
+    image: jobverplanke/php:8.5-cli
     entrypoint: ["php", "artisan"]
     profiles:
       - tools
     volumes:
       - ./:/var/www/html
-    environment:
-      XDEBUG_MODE: "off"
     depends_on:
       mysql:
         condition: service_healthy

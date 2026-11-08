@@ -32,13 +32,10 @@ The app is served on <http://localhost:8080>.
 
 ## Notes
 
-- The compose file uses the `-dev` image tags (xdebug enabled, generous
-  limits). For production, use `8.5-fpm` / `8.5-cli`: no xdebug, JIT active,
-  `opcache.validate_timestamps=0` — which also means you bake your code into
-  an image instead of bind-mounting it.
-- The horizon and scheduler containers run with `XDEBUG_MODE=off` to avoid
-  xdebug connection noise on every tick; set it to `debug` when you want to
-  step-debug a queue job.
+- The images are production builds: no xdebug, errors not displayed and
+  `opcache.validate_timestamps=0`. The app service overrides that last
+  setting so edits to the bind-mounted code show up; in production, bake the
+  code into an image instead of bind-mounting it and drop the override.
 - Horizon supervises its own worker processes: scale by raising
   `maxProcesses` in `config/horizon.php`, not by adding container replicas.
   Keep both the horizon and scheduler services at exactly one replica, and
