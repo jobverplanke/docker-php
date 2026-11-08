@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-IMAGE := jobverplanke/php
+IMAGE := ghcr.io/jobverplanke/php
 
 # Multi-stage images; the production target is the published image.
 # Build context is the version directory so Dockerfiles can COPY from config/.

@@ -1,6 +1,6 @@
 # Laravel example
 
-Example setup for running a Laravel app with the `jobverplanke/php` images:
+Example setup for running a Laravel app with the `ghcr.io/jobverplanke/php` images:
 one fpm container for web requests behind nginx, and separate containers
 (same cli image, different command) for Laravel Horizon (queue workers),
 the scheduler and one-off artisan commands.

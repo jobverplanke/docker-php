@@ -1,4 +1,4 @@
-# Example docker-compose.yml for a Laravel app using the jobverplanke/php images.
+# Example docker-compose.yml for a Laravel app using the ghcr.io/jobverplanke/php images.
 #
 # Copy this file to the root of your Laravel project and docker/nginx.conf
 # alongside it. The images are production builds (no xdebug); the app
@@ -21,7 +21,7 @@ services:
 
   # Web requests (php-fpm, port 9000 internally)
   app:
-    image: jobverplanke/php:8.5-fpm
+    image: ghcr.io/jobverplanke/php:8.5-fpm
     # The image never checks files for changes (validate_timestamps=0), so
     # edits to the bind-mounted code would not show up without a restart.
     command: ["php-fpm", "-d", "opcache.validate_timestamps=1", "-d", "opcache.revalidate_freq=0"]
@@ -39,7 +39,7 @@ services:
   # config/horizon.php, NOT by adding container replicas. The dashboard is
   # served by the app service at /horizon.
   horizon:
-    image: jobverplanke/php:8.5-cli
+    image: ghcr.io/jobverplanke/php:8.5-cli
     command: php artisan horizon
     restart: unless-stopped
     # Horizon traps SIGTERM and lets running jobs finish before exiting;
@@ -57,7 +57,7 @@ services:
   # ever need HA). schedule:work ticks schedule:run every minute in the
   # foreground, so no crond is needed in the image.
   scheduler:
-    image: jobverplanke/php:8.5-cli
+    image: ghcr.io/jobverplanke/php:8.5-cli
     command: php artisan schedule:work
     restart: unless-stopped
     volumes:
@@ -72,7 +72,7 @@ services:
   #   docker compose run --rm artisan migrate
   #   docker compose run --rm artisan tinker
   artisan:
-    image: jobverplanke/php:8.5-cli
+    image: ghcr.io/jobverplanke/php:8.5-cli
     entrypoint: ["php", "artisan"]
     profiles:
       - tools
