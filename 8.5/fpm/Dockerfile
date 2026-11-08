@@ -54,6 +54,8 @@ FROM php:8.5-fpm-alpine3.24@sha256:4c2818074ec49f6abe46620f3965e0cb75bc3a5f2b417
 
 LABEL maintainer="Job Verplanke <job@verplanke.dev>"
 LABEL org.opencontainers.image.source="https://github.com/jobverplanke/docker-php"
+LABEL org.opencontainers.image.description="Personal PHP Docker Image"
+LABEL org.opencontainers.image.licenses=MIT
 
 ENV COMPOSER_HOME=/composer \
     PATH="${PATH}:/composer/vendor/bin"
