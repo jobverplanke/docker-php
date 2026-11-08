@@ -72,7 +72,11 @@ ENV COMPOSER_HOME=/composer \
 
 ARG TZ=Europe/Amsterdam
 
+# apk upgrade pulls in Alpine security fixes that the pinned base image does
+# not carry yet, so the Trivy gate does not have to wait for an upstream
+# rebuild. The scan in the workflow checks the result.
 RUN set -eux \
+    && apk upgrade --no-cache \
     && apk add --no-cache \
         tzdata \
         libzip \
