@@ -177,6 +177,6 @@ jobs:
           # Warns when a tagged multi-arch index misses a platform manifest
           # after the cleanup, as a check that nothing referenced was removed.
           validate: true
-          # Only logs what would be deleted. Set to false once a run's log
-          # shows the expected set.
-          dry-run: true
+          # Set to true to only log what would be deleted, for example after
+          # changing what the build pushes.
+          dry-run: false
