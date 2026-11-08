@@ -14,13 +14,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   REGISTRY_IMAGE: ghcr.io/${{ github.repository_owner }}/php
 
 jobs:
-  # One job per variant *and* per architecture. Each job builds a single
-  # platform and pushes it untagged (by digest); the merge job below joins the
-  # per-variant digests into one multi-arch tag.
   build:
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -29,19 +30,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 2 types x 2 envs x 2 platforms = 8 jobs. The platform dimension is
-        # kept separate (rather than one job building both) because arm64 must
-        # not be emulated: this build compiles redis, imagick and xdebug from
-        # source with pecl, which takes roughly half an hour per combination
-        # under QEMU. Native arm64 runners are free for public repositories,
-        # so each platform builds on its own hardware at amd64-like speed.
         php: ['8.5']
         type: ['fpm', 'cli']
         env: ['production', 'dev']
         platform: ['linux/amd64', 'linux/arm64']
-        # Maps each platform onto its native runner and a filename-safe
-        # short name. Expressed as include rows so the runner mapping lives in
-        # one place instead of being repeated across 8 hand-written entries.
         include:
           - platform: linux/amd64
             runner: ubuntu-24.04
@@ -52,8 +44,6 @@ jobs:
 
     name: Build PHP ${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }} Alpine (${{ matrix.arch }})
 
-    # All actions are pinned to commit SHAs (supply-chain hardening); the
-    # trailing comment documents the human-readable version.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -67,14 +57,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Single-platform build loaded into the runner's docker daemon so Trivy
-      # can scan a real image. A multi-platform build cannot be loaded, which
-      # is exactly why the platform is a matrix dimension: this job runs on a
-      # runner native to matrix.platform, so the arm64 job loads and scans an
-      # actual arm64 image. The gate therefore covers both architectures.
-      #
-      # The cache scope is per variant *and* per architecture; sharing one
-      # scope would make the two architectures evict each other's layers.
       - name: Build for scanning (not pushed)
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -87,7 +69,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
 
-      - name: Scan for vulnerabilities (gate - fails on HIGH/CRITICAL)
+      - name: Scan for vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: scan-target:${{ matrix.php }}-${{ matrix.type }}-${{ matrix.env }}-${{ matrix.arch }}
@@ -185,3 +167,24 @@ jobs:
 
       - name: Inspect published image
         run: docker buildx imagetools inspect "${REGISTRY_IMAGE}:${TAG}"
+
+  cleanup:
+    needs: [merge]
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+
+    name: Remove untagged package versions
+
+    steps:
+      - name: Delete untagged versions
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
+        with:
+          package: php
+          delete-untagged: true
+          # Warns when a tagged multi-arch index misses a platform manifest
+          # after the cleanup, as a check that nothing referenced was removed.
+          validate: true
+          # Only logs what would be deleted. Set to false once a run's log
+          # shows the expected set.
+          dry-run: true
