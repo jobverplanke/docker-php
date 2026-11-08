@@ -78,14 +78,6 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
 
-      # Pushed without a tag: the tag is applied once, in the merge job, after
-      # every platform of this variant has passed the gate. Re-running the
-      # build here is a cache hit on the step above.
-      #
-      # provenance/sbom make each push an index (image manifest + attestation
-      # manifests) rather than a bare manifest; imagetools create in the merge
-      # job flattens those indexes into one and carries the attestations over,
-      # so the published tag keeps mode=max provenance and an SBOM per arch.
       - name: Push by digest with provenance and SBOM
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
