@@ -14,7 +14,7 @@ FROM composer:2.10@sha256:2cf275428757e5435a667bfc0d038b14520ca02be2b1b70d44a05c
 # Note: opcache is statically compiled into PHP >= 8.5 and is not
 # installable as a shared extension
 # -----------------------------------------------------------------
-FROM php:8.5-fpm-alpine3.24@sha256:4c2818074ec49f6abe46620f3965e0cb75bc3a5f2b417edd1aacaba6f091c40e AS build
+FROM php:8.5-fpm-alpine3.24@sha256:64535609509e0fd5c8529359e6b599a68ce42089defd565f7881efdae7687cea AS build
 
 ARG REDIS_VERSION=6.3.0
 ARG IMAGICK_VERSION=3.8.1
@@ -50,7 +50,7 @@ RUN set -eux \
 # -----------------------------------------------------------------
 # Stage 3: runtime-base - runtime packages, config and user
 # -----------------------------------------------------------------
-FROM php:8.5-fpm-alpine3.24@sha256:4c2818074ec49f6abe46620f3965e0cb75bc3a5f2b417edd1aacaba6f091c40e AS runtime-base
+FROM php:8.5-fpm-alpine3.24@sha256:64535609509e0fd5c8529359e6b599a68ce42089defd565f7881efdae7687cea AS runtime-base
 
 LABEL maintainer="Job Verplanke <job@verplanke.dev>"
 LABEL org.opencontainers.image.source="https://github.com/jobverplanke/docker-php"
