@@ -7,14 +7,14 @@
 # -----------------------------------------------------------------
 # Stage 1: composer - Composer binary only
 # -----------------------------------------------------------------
-FROM composer:2.10@sha256:2cf275428757e5435a667bfc0d038b14520ca02be2b1b70d44a05c8c19e2de48 AS composer
+FROM composer:2.11@sha256:ca11f643d7791ebdd90a34fc20caf11380d434007ae539a9ea75cd9212e13dca AS composer
 
 # -----------------------------------------------------------------
 # Stage 2: build - compile the extension set
 # Note: opcache is statically compiled into PHP >= 8.5 and is not
 # installable as a shared extension
 # -----------------------------------------------------------------
-FROM php:8.5-cli-alpine3.24@sha256:d1fbbe78850d1eb9aa8f7da652ec5db61eb4c9377c8215cf5e23f3b528ed4f2b AS build
+FROM php:8.5-cli-alpine3.24@sha256:1ff5b45922ab30f418447c6089dbe2eba5f01e0b2742863d0327ac349305d70f AS build
 
 ARG REDIS_VERSION=6.3.0
 ARG IMAGICK_VERSION=3.8.1
@@ -50,7 +50,7 @@ RUN set -eux \
 # -----------------------------------------------------------------
 # Stage 3: runtime-base - runtime packages, config and user
 # -----------------------------------------------------------------
-FROM php:8.5-cli-alpine3.24@sha256:d1fbbe78850d1eb9aa8f7da652ec5db61eb4c9377c8215cf5e23f3b528ed4f2b AS runtime-base
+FROM php:8.5-cli-alpine3.24@sha256:1ff5b45922ab30f418447c6089dbe2eba5f01e0b2742863d0327ac349305d70f AS runtime-base
 
 LABEL maintainer="Job Verplanke <job@verplanke.dev>"
 LABEL org.opencontainers.image.source="https://github.com/jobverplanke/docker-php"
